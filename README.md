@@ -20,6 +20,7 @@ run/          full model, in order (edit run/config.sh first):
   05_check_cluster.sh  rank 0: tensor-parallel check of the tiny model on the cluster
   06_serve.sh          rank 0: OpenAI-compatible server on all 4 Macs
   07_test_request.sh   one chat request
+  08_panel.sh          mac1: web panel http://localhost:7070 — every Mac's status, start/stop, settings, logs, chat
 
 scripts/      checks
   inspect_ckpt.py      tensor names and config from safetensors headers

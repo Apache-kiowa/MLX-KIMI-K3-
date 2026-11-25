@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kimi K3.1 · кластер</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%278%27 fill=%27%237aa2ff%27/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#0e1013; --panel:#16191e; --panel2:#1c2027; --line:#262b33; --text:#e7e9ee; --muted:#8b93a1; --faint:#5c6370;
+  --accent:#7aa2ff; --ok:#3ecf8e; --warn:#f2b64c; --bad:#ff6b6b; --wired:#9b7bff; --gpu:#4cc9f0; --disk:#c0c6d0;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif}
+button,input,select,textarea{font:inherit;color:inherit}
+header{display:flex;align-items:center;gap:14px;padding:16px 24px;border-bottom:1px solid var(--line);position:sticky;top:0;background:rgba(14,16,19,.92);backdrop-filter:blur(8px);z-index:5}
+.logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#7aa2ff,#9b7bff);display:grid;place-items:center;font-weight:700;font-size:13px;color:#0e1013}
+header h1{font-size:16px;margin:0;font-weight:600}
+header .sub{color:var(--muted);font-size:12.5px}
+.grow{flex:1}
+.pill{display:inline-flex;align-items:center;gap:7px;padding:5px 11px;border-radius:99px;background:var(--panel2);border:1px solid var(--line);font-size:12.5px;white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--faint);flex:none}
+.dot.ok{background:var(--ok);box-shadow:0 0 0 3px rgba(62,207,142,.15)}
+.dot.warn{background:var(--warn);box-shadow:0 0 0 3px rgba(242,182,76,.15)}
+.dot.bad{background:var(--bad);box-shadow:0 0 0 3px rgba(255,107,107,.15)}
+.dot.pulse{animation:pulse 1.2s infinite}
+@keyframes pulse{50%{opacity:.35}}
+.demo{background:#3a2e12;color:var(--warn);border-color:#5a4718}
+main{padding:20px 24px 40px;max-width:1500px;margin:0 auto}
+.hosts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+@media (max-width:1150px){.hosts{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:640px){.hosts{grid-template-columns:1fr} main{padding:14px} header{padding:12px 14px;flex-wrap:wrap;gap:10px} header .sub,header .grow{display:none} header h1{font-size:15px} .pill{font-size:11.5px;padding:4px 9px} .pane{padding:12px} .modelhead .grow{display:none} .chat{height:70vh}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:15px 16px 14px;display:flex;flex-direction:column;gap:11px;min-width:0}
+.card.off{opacity:.72}
+.card .top{display:flex;align-items:center;gap:9px}
+.card .name{font-weight:600;font-size:15.5px}
+.chip{font-size:11px;padding:2px 7px;border-radius:6px;background:var(--panel2);color:var(--muted);border:1px solid var(--line);white-space:nowrap}
+.chip.lead{color:var(--accent);border-color:#2f3e63;background:#18213a}
+.conn{font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:7px;min-height:18px}
+.conn .err{color:var(--bad);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.metric .row{display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:5px;gap:8px}
+.metric .row .k{color:var(--muted)}
+.metric .row .v{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar{height:7px;border-radius:5px;background:#232831;overflow:hidden;display:flex}
+.bar i{display:block;height:100%}
+.warnbox{font-size:12px;color:var(--warn);background:#2a2412;border:1px solid #4a3d18;border-radius:8px;padding:7px 9px}
+.warnbox code{font-family:var(--mono);font-size:11.5px;color:#ffd98a;user-select:all}
+.foot{display:flex;gap:10px;flex-wrap:wrap;font-size:11.5px;color:var(--faint);border-top:1px solid var(--line);padding-top:9px;margin-top:auto}
+.foot b{color:var(--muted);font-weight:500}
+
+.console{margin-top:18px;background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.tabs{display:flex;gap:2px;padding:8px 10px 0;border-bottom:1px solid var(--line);background:var(--panel)}
+.tab{padding:9px 14px;border:0;background:none;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tab.on{color:var(--text);border-bottom-color:var(--accent)}
+.tabs .note{margin-left:auto;align-self:center;font-size:12px;color:var(--faint);padding-right:6px}
+.pane{display:none;padding:18px}
+.pane.on{display:block}
+.btn{padding:8px 15px;border-radius:9px;border:1px solid var(--line);background:var(--panel2);cursor:pointer;transition:.15s}
+.btn:hover{border-color:#3a414c}
+.btn.primary{background:var(--accent);color:#0b1020;border-color:var(--accent);font-weight:600}
+.btn.danger{background:#3a1717;border-color:#5c2323;color:#ffb3b3}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.modelhead{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.state{font-size:22px;font-weight:600;display:flex;align-items:center;gap:11px}
+.state .dot{width:11px;height:11px}
+.muted{color:var(--muted)}
+.checks{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px;margin:16px 0}
+.check{display:flex;gap:9px;align-items:flex-start;font-size:13px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:9px 11px}
+.check .dot{margin-top:6px}
+pre.cmd{font-family:var(--mono);font-size:11.5px;background:#0b0d10;border:1px solid var(--line);border-radius:9px;padding:10px 12px;white-space:pre-wrap;word-break:break-all;color:var(--muted);margin:0}
+.form{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px}
+fieldset{border:1px solid var(--line);border-radius:12px;padding:12px 14px 14px;margin:0}
+legend{color:var(--muted);font-size:12px;padding:0 6px;text-transform:uppercase;letter-spacing:.04em}
+.field{display:grid;grid-template-columns:1fr 120px;align-items:center;gap:10px;margin-top:10px}
+.field label{font-size:13px}
+.field small{display:block;color:var(--faint);font-size:11.5px;margin-top:1px}
+.field input[type=number],.field select{width:100%;padding:6px 8px;border-radius:7px;border:1px solid var(--line);background:#0f1216}
+.field input[type=checkbox]{width:18px;height:18px;justify-self:end;accent-color:var(--accent)}
+.savebar{display:flex;align-items:center;gap:12px;margin-top:16px}
+.logs{display:flex;gap:8px;margin-bottom:10px;align-items:center}
+.logview{font-family:var(--mono);font-size:12px;line-height:1.5;background:#0b0d10;border:1px solid var(--line);border-radius:10px;padding:12px;height:460px;overflow:auto;white-space:pre-wrap;word-break:break-word;color:#c9ced8;margin:0}
+.chat{display:flex;flex-direction:column;height:620px}
+.msgs{flex:1;overflow:auto;display:flex;flex-direction:column;gap:14px;padding:4px 4px 14px}
+.msg{max-width:860px;width:fit-content;padding:10px 14px;border-radius:13px;background:var(--panel2);border:1px solid var(--line);white-space:pre-wrap;word-wrap:break-word}
+.msg.user{align-self:flex-end;background:#1b2540;border-color:#2b3a63}
+.msg.err{border-color:#5c2323;color:#ffb3b3}
+.msg details{margin-bottom:8px;color:var(--muted);font-size:12.5px}
+.msg details summary{cursor:pointer;user-select:none}
+.msg details div{white-space:pre-wrap;border-left:2px solid var(--line);padding-left:10px;margin-top:6px}
+.msg pre{background:#0b0d10;border:1px solid var(--line);border-radius:8px;padding:9px 11px;overflow:auto;font-family:var(--mono);font-size:12.5px;white-space:pre}
+.msg code{font-family:var(--mono);font-size:12.5px;background:#0b0d10;padding:1px 5px;border-radius:5px}
+.msg .meta{font-size:11.5px;color:var(--faint);margin-top:6px}
+.empty{margin:auto;color:var(--faint);text-align:center}
+.compose{display:flex;gap:10px;align-items:flex-end;border-top:1px solid var(--line);padding-top:12px}
+.compose textarea{flex:1;resize:none;min-height:46px;max-height:220px;padding:11px 13px;border-radius:11px;border:1px solid var(--line);background:#0f1216;outline:none}
+.compose textarea:focus{border-color:#34405a}
+.chatopts{display:flex;gap:14px;align-items:center;font-size:12.5px;color:var(--muted);margin-bottom:10px;flex-wrap:wrap}
+.chatopts input[type=number]{width:80px;padding:4px 6px;border-radius:6px;border:1px solid var(--line);background:#0f1216}
+.toast{position:fixed;bottom:18px;right:18px;background:var(--panel2);border:1px solid var(--line);padding:10px 14px;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.4);opacity:0;transform:translateY(8px);transition:.2s;pointer-events:none;max-width:420px}
+.toast.on{opacity:1;transform:none}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">K3.1</div>
+  <div>
+    <h1>Kimi K3.1 Pro · кластер</h1>
+    <div class="sub" id="sub">тензорный параллелизм · Thunderbolt 5 / RDMA</div>
+  </div>
+  <div class="grow"></div>
+  <span class="pill demo" id="demo" hidden>демо-данные</span>
+  <span class="pill" id="online"><span class="dot"></span>—</span>
+  <span class="pill" id="mstate"><span class="dot"></span>модель: —</span>
+</header>
+
+<main>
+  <section class="hosts" id="hosts"></section>
+
+  <section class="console">
+    <div class="tabs">
+      <button class="tab on" data-tab="model">Модель</button>
+      <button class="tab" data-tab="chat">Чат</button>
+      <button class="tab" data-tab="logs">Логи</button>
+      <button class="tab" data-tab="settings">Настройки</button>
+      <span class="note">управление с mac1</span>
+    </div>
+
+    <div class="pane on" id="pane-model">
+      <div class="modelhead">
+        <div class="state" id="bigstate"><span class="dot"></span><span>—</span></div>
+        <span class="muted" id="statedetail"></span>
+        <div class="grow"></div>
+        <button class="btn" id="btn-hostfile">Создать hostfile</button>
+        <button class="btn danger" id="btn-stop">Остановить</button>
+        <button class="btn primary" id="btn-start">Запустить модель</button>
+      </div>
+      <div class="checks" id="checks"></div>
+      <div class="muted" style="font-size:12px;margin-bottom:6px">Команда запуска (последняя):</div>
+      <pre class="cmd" id="cmd">ещё не запускалась</pre>
+    </div>
+
+    <div class="pane" id="pane-chat">
+      <div class="chatopts">
+        <label><input type="checkbox" id="c-think" checked> размышление</label>
+        <label>температура <input type="number" id="c-temp" step="0.05" min="0" max="2"></label>
+        <label>макс. токенов <input type="number" id="c-max" step="256" min="16"></label>
+        <span class="grow"></span>
+        <button class="btn" id="c-clear">Очистить</button>
+      </div>
+      <div class="chat">
+        <div class="msgs" id="msgs"><div class="empty" id="empty">Запустите модель и напишите сообщение.<br>Enter — отправить, Shift+Enter — новая строка.</div></div>
+        <div class="compose">
+          <textarea id="input" placeholder="Сообщение для Kimi K3.1…" rows="1"></textarea>
+          <button class="btn danger" id="c-stop" hidden>Стоп</button>
+          <button class="btn primary" id="c-send">Отправить</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="pane" id="pane-logs">
+      <div class="logs">
+        <button class="btn" data-log="server" id="lg-server">Сервер модели</button>
+        <button class="btn" data-log="actions" id="lg-actions">Действия панели</button>
+        <span class="grow"></span>
+        <label class="muted" style="font-size:12.5px"><input type="checkbox" id="lg-follow" checked> следить за концом</label>
+      </div>
+      <pre class="logview" id="logview">—</pre>
+    </div>
+
+    <div class="pane" id="pane-settings">
+      <div class="form" id="form"></div>
+      <div class="savebar">
+        <button class="btn primary" id="s-save">Сохранить</button>
+        <button class="btn" id="s-reset">Сбросить по умолчанию</button>
+        <span class="muted" id="s-note">Параметры сервера применяются при следующем запуске модели. Температура и длина ответа — сразу в чате.</span>
+      </div>
+    </div>
+  </section>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const GB = 1e9, GiB = 2**30;
+const fmtGB = b => (b/GB >= 100 ? (b/GB).toFixed(0) : (b/GB).toFixed(1)).replace('.', ',') + ' ГБ';
+const fmtMem = b => Math.round(b/GiB) + ' ГБ';
+const fmtTB = b => b >= 1e12 ? (b/1e12).toFixed(2).replace('.', ',') + ' ТБ' : fmtGB(b);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const dur = s => { s = Math.max(0, Math.floor(s)); const d = Math.floor(s/86400), h = Math.floor(s%86400/3600), m = Math.floor(s%3600/60);
+  return d ? `${d} д ${h} ч` : h ? `${h} ч ${m} мин` : m ? `${m} мин ${s%60} с` : `${s} с`; };
+let toastT; function toast(t){ const el=$('#toast'); el.textContent=t; el.classList.add('on'); clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove('on'),3500); }
+async function api(path, body){ const r = await fetch(path, body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const j = await r.json().catch(()=>({})); if(!r.ok) throw new Error(j.message||j.error||r.statusText); return j; }
+
+/* ---------- tabs ---------- */
+document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x===b));
+  document.querySelectorAll('.pane').forEach(p => p.classList.toggle('on', p.id==='pane-'+b.dataset.tab));
+  if (b.dataset.tab==='logs') loadLogs();
+  if (b.dataset.tab==='chat') $('#input').focus();
+});
+
+/* ---------- status ---------- */
+let last = null;
+const STATE = {stopped:['остановлена',''], starting:['загружается','warn pulse'], ready:['работает','ok'], stopping:['останавливается','warn pulse'], failed:['ошибка','bad']};
+
+function bar(parts){ return `<div class="bar">${parts.map(([v,c])=>`<i style="width:${Math.max(0,Math.min(100,v))}%;background:${c}"></i>`).join('')}</div>`; }
+
+function hostCard(h){
+  const lead = h.rank===0;
+  if(!h.ok){
+    return `<div class="card off"><div class="top"><span class="name">${esc(h.host)}</span><span class="chip ${lead?'lead':''}">rank ${h.rank}</span>${lead?'<span class="chip lead">управление</span>':''}</div>
+      <div class="conn"><span class="dot bad"></span><span class="err" title="${esc(h.error)}">нет связи: ${esc(h.error)}</span></div>
+      <div class="muted" style="font-size:12.5px">${lead?'Панель не может прочитать данные этого Mac.':'Проверьте кабель, «Удалённый вход» и ключ ssh: <code>ssh '+esc(h.host)+' hostname</code> с mac1.'}</div></div>`;
+  }
+  const memP = h.mem_total ? 100*h.mem_used/h.mem_total : 0, wiredP = h.mem_total ? 100*h.mem_wired/h.mem_total : 0;
+  const diskUsedP = h.disk_total ? 100*(1-h.disk_avail/h.disk_total) : 0;
+  const exp = h.w_expect || 0, wP = exp ? 100*h.w_bytes/exp : 0;
+  const done = exp && h.w_bytes>=exp && !h.w_tmp;
+  let wText, wColor;
+  if (!h.w_files && !h.w_tmp) { wText='нет'; wColor='var(--faint)'; }
+  else if (done) { wText=`${h.w_files} файлов · ${fmtGB(h.w_bytes)} ✓`; wColor='var(--ok)'; }
+  else { wText=`${h.w_tmp?'копируется · ':''}${fmtGB(h.w_bytes)}${exp?' из '+fmtGB(exp)+' · '+Math.floor(wP)+' %':''}`; wColor='var(--warn)'; }
+  const warns = [];
+  if (h.wired_limit_mb < 400000) warns.push(`Лимит GPU-памяти не поднят (${h.wired_limit_mb||'по умолчанию'}). На этом Mac: <code>sudo sysctl iogpu.wired_limit_mb=480000</code>`);
+  if (h.swap && !/^0(\.0+)?M$/.test(h.swap)) warns.push(`Используется swap: ${esc(h.swap)}. Памяти не хватает.`);
+  if (h.mem_comp > 4*GiB) warns.push(`Сжатие памяти: ${fmtMem(h.mem_comp)}.`);
+  return `<div class="card">
+    <div class="top"><span class="name">${esc(h.host)}</span><span class="chip ${lead?'lead':''}">rank ${h.rank}</span>${lead?'<span class="chip lead">управление</span>':''}<span class="grow"></span><span class="chip">${esc((h.chip||'').replace('Apple ',''))}</span></div>
+    <div class="conn"><span class="dot ok"></span>${lead?'локально':'на связи'} · ${h.latency_ms} мс${h.rdma?` · RDMA ${esc(h.rdma.replace(/^.*?:\s*/,''))}`:''}</div>
+    <div class="metric"><div class="row"><span class="k">Память</span><span class="v">${fmtMem(h.mem_used)} / ${fmtMem(h.mem_total)} · wired ${fmtMem(h.mem_wired)}</span></div>
+      ${bar([[wiredP,'var(--wired)'],[memP-wiredP,'var(--accent)']])}</div>
+    <div class="metric"><div class="row"><span class="k">GPU</span><span class="v">${h.gpu>=0?h.gpu+' %':'—'}</span></div>${bar([[h.gpu>=0?h.gpu:0,'var(--gpu)']])}</div>
+    <div class="metric"><div class="row"><span class="k">Диск</span><span class="v">свободно ${fmtTB(h.disk_avail)} из ${fmtTB(h.disk_total)}</span></div>${bar([[diskUsedP,'var(--disk)']])}</div>
+    <div class="metric"><div class="row"><span class="k" title="${esc(h.w_index)}">Веса</span><span class="v" style="color:${wColor}">${wText}</span></div>${bar([[wP,done?'var(--ok)':'var(--warn)']])}</div>
+    ${warns.map(w=>`<div class="warnbox">${w}</div>`).join('')}
+    <div class="foot"><span>сервер: <b>${h.server_procs?'работает':'нет'}</b></span><span>работает <b>${dur(h.uptime_s)}</b></span><span>нагрузка <b>${esc((h.loadavg||'').trim().split(/\s+/)[0]||'—')}</b></span><span>macOS <b>${esc(h.os)}</b></span></div>
+  </div>`;
+}
+
+function render(s){
+  last = s;
+  $('#demo').hidden = !s.demo;
+  $('#hosts').innerHTML = s.hosts.map(hostCard).join('');
+  const on = s.hosts.filter(h=>h.ok).length;
+  $('#online').innerHTML = `<span class="dot ${on===s.hosts.length?'ok':on?'warn':'bad'}"></span>на связи ${on} из ${s.hosts.length}`;
+  const m = s.model, [label, cls] = STATE[m.state]||[m.state,''];
+  $('#mstate').innerHTML = `<span class="dot ${cls}"></span>модель: ${label}`;
+  let extra = '';
+  if (m.state==='starting') extra = `идёт ${dur(s.now-m.started)} · ${esc(m.detail)}`;
+  else if (m.state==='ready') extra = `загрузилась за ${dur(m.ready_at-m.started)} · работает ${dur(s.now-m.ready_at)}`;
+  else extra = esc(m.detail||'');
+  $('#bigstate').innerHTML = `<span class="dot ${cls}"></span><span>Модель ${label}</span>`;
+  $('#statedetail').textContent = extra.replace(/&amp;/g,'&');
+  $('#cmd').textContent = m.cmd || 'ещё не запускалась';
+  const busy = ['starting','ready','stopping'].includes(m.state);
+  $('#btn-start').disabled = busy; $('#btn-stop').disabled = m.state==='stopped';
+  $('#btn-hostfile').disabled = !!s.action || busy;
+  $('#btn-hostfile').textContent = s.action ? 'Выполняется…' : (s.hostfile_exists ? 'Пересоздать hostfile' : 'Создать hostfile');
+  // readiness checklist
+  const tp = s.hosts.length;
+  const checks = [
+    [on===tp, `Все Mac на связи (${on}/${tp})`],
+    [s.hosts.every(h=>h.ok && h.w_expect && h.w_bytes>=h.w_expect && !h.w_tmp), 'Части весов на месте на всех Mac'],
+    [s.hosts.every(h=>h.ok && h.wired_limit_mb>=400000), 'Лимит GPU-памяти поднят везде (≥ 400 000 МБ)'],
+    [s.hostfile_exists, 'Hostfile для jaccl создан'],
+    [s.hosts.every(h=>h.ok && h.mem_total>=480*GiB), 'Память ≥ 480 ГБ на каждом Mac'],
+  ];
+  $('#checks').innerHTML = checks.map(([ok,t])=>`<div class="check"><span class="dot ${ok?'ok':'warn'}"></span><span>${t}</span></div>`).join('');
+}
+
+async function poll(){ try { render(await api('/api/status')); } catch(e){ $('#online').innerHTML = `<span class="dot bad"></span>панель недоступна`; } }
+setInterval(poll, 2000); poll();
+
+$('#btn-start').onclick = async () => { try { await api('/api/model/start', {}); toast('Запуск модели на всех Mac…'); poll(); } catch(e){ toast(e.message); } };
+$('#btn-stop').onclick = async () => { if(!confirm('Остановить модель на всех Mac?')) return; try { await api('/api/model/stop', {}); toast('Остановка…'); poll(); } catch(e){ toast(e.message); } };
+$('#btn-hostfile').onclick = async () => { try { await api('/api/action/hostfile', {}); toast('Создаю hostfile — ход в «Логи → Действия панели»'); } catch(e){ toast(e.message); } };
+
+/* ---------- logs ---------- */
+let logKind = 'server';
+document.querySelectorAll('[data-log]').forEach(b => b.onclick = () => { logKind = b.dataset.log; loadLogs(); });
+async function loadLogs(){
+  $('#lg-server').classList.toggle('primary', logKind==='server'); $('#lg-actions').classList.toggle('primary', logKind==='actions');
+  try { const j = await api('/api/logs?n=600'); const v = $('#logview'); v.textContent = j[logKind] || '(пусто)'; if ($('#lg-follow').checked) v.scrollTop = v.scrollHeight; } catch(e){}
+}
+setInterval(() => { if ($('#pane-logs').classList.contains('on')) loadLogs(); }, 2000);
+
+/* ---------- settings ---------- */
+const FIELDS = [
+  ['Генерация', [
+    ['temp','Температура','0 — всегда самый вероятный токен','number',0.05],
+    ['top_p','top-p','','number',0.01],
+    ['top_k','top-k','0 = выключено','number',1],
+    ['min_p','min-p','0 = выключено','number',0.01],
+    ['max_tokens','Макс. токенов ответа','с размышлением нужно больше','number',256],
+    ['thinking','Размышление (thinking)','модель сначала рассуждает','checkbox'],
+  ]],
+  ['Контекст и скорость', [
+    ['prefill_step_size','Шаг чтения промпта','512 — для длинного контекста; 256 — для ~1 млн','number',128],
+    ['prompt_cache_size','Кэшей промптов в памяти','повторные вопросы по тому же тексту — быстро','number',1],
+    ['kv_bits','Квантование KV-кэша','0 = без потерь; 8 — вдвое меньше памяти','select',[0,8,4]],
+    ['decode_concurrency','Параллельных ответов','','number',1],
+    ['prompt_concurrency','Параллельных промптов','','number',1],
+  ]],
+  ['Система', [
+    ['port','Порт сервера модели','','number',1],
+    ['indexer_fp8','DSA-индексатор в FP8','как в vLLM; выкл. = как NeMo (точнее)','checkbox'],
+    ['fast_synch','MLX_METAL_FAST_SYNCH','быстрая синхронизация GPU между Mac','checkbox'],
+    ['log_level','Уровень логов','','select',['INFO','DEBUG','WARNING']],
+  ]],
+];
+let settings = {}, defaults = {};
+function renderForm(){
+  $('#form').innerHTML = FIELDS.map(([title, fs]) => `<fieldset><legend>${title}</legend>${fs.map(([k,l,hint,type,x]) => {
+    const v = settings[k];
+    let input;
+    if (type==='checkbox') input = `<input type="checkbox" id="f-${k}" ${v?'checked':''}>`;
+    else if (type==='select') input = `<select id="f-${k}">${x.map(o=>`<option ${String(o)===String(v)?'selected':''}>${o}</option>`).join('')}</select>`;
+    else input = `<input type="number" id="f-${k}" step="${x}" value="${v}">`;
+    return `<div class="field"><label for="f-${k}">${l}${hint?`<small>${hint}</small>`:''}</label>${input}</div>`;
+  }).join('')}</fieldset>`).join('');
+}
+function readForm(){ const o = {}; FIELDS.forEach(([,fs]) => fs.forEach(([k,,,type]) => { const el = $('#f-'+k);
+  o[k] = type==='checkbox' ? el.checked : (type==='select' && isNaN(+el.value)) ? el.value : +el.value; })); return o; }
+async function loadSettings(){ const j = await api('/api/settings'); settings = j.settings; defaults = j.defaults; renderForm(); syncChatOpts(); }
+$('#s-save').onclick = async () => { try { const j = await api('/api/settings', readForm()); settings = j.settings; syncChatOpts();
+  toast(j.restart_needed ? 'Сохранено. Параметры сервера вступят в силу после перезапуска модели.' : 'Сохранено'); } catch(e){ toast(e.message); } };
+$('#s-reset').onclick = () => { settings = {...defaults}; renderForm(); toast('Значения по умолчанию — нажмите «Сохранить»'); };
+function syncChatOpts(){ $('#c-think').checked = !!settings.thinking; $('#c-temp').value = settings.temp; $('#c-max').value = settings.max_tokens; }
+loadSettings();
+
+/* ---------- chat ---------- */
+const history = []; let ctrl = null;
+function md(t){
+  const parts = String(t).split(/```/);
+  return parts.map((p,i) => i%2 ? `<pre>${esc(p.replace(/^[\w+-]*\n/,''))}</pre>` : esc(p).replace(/`([^`\n]+)`/g,'<code>$1</code>').replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>')).join('');
+}
+function addMsg(role, html){ $('#empty')?.remove(); const d = document.createElement('div'); d.className = 'msg '+role; d.innerHTML = html; $('#msgs').appendChild(d); $('#msgs').scrollTop = 1e9; return d; }
+const inp = $('#input');
+inp.addEventListener('input', () => { inp.style.height='auto'; inp.style.height=Math.min(220,inp.scrollHeight)+'px'; });
+inp.addEventListener('keydown', e => { if (e.key==='Enter' && !e.shiftKey && !e.isComposing){ e.preventDefault(); send(); } });
+$('#c-send').onclick = send;
+$('#c-stop').onclick = () => ctrl?.abort();
+$('#c-clear').onclick = () => { history.length = 0; $('#msgs').innerHTML = '<div class="empty" id="empty">Чат очищен.</div>'; };
+
+async function send(){
+  const text = inp.value.trim(); if (!text || ctrl) return;
+  if (last && last.model.state!=='ready' && !last.demo){ toast('Модель не запущена — вкладка «Модель» → «Запустить модель»'); return; }
+  inp.value=''; inp.style.height='auto';
+  history.push({role:'user', content:text}); addMsg('user', esc(text));
+  const box = addMsg('assistant', '<span class="muted">читаю промпт…</span>');
+  let content = '', reasoning = '', n = 0, t0 = performance.now(), tFirst = 0;
+  const think = $('#c-think').checked;
+  ctrl = new AbortController(); $('#c-stop').hidden = false; $('#c-send').disabled = true;
+  const draw = (done) => {
+    const tps = n && tFirst ? (n / ((performance.now()-tFirst)/1000)).toFixed(1) : '—';
+    box.innerHTML = (reasoning ? `<details ${done?'':'open'}><summary>Размышление${done?'':'…'}</summary><div>${esc(reasoning)}</div></details>` : '')
+      + (content ? md(content) : (done ? '' : '<span class="muted">…</span>'))
+      + `<div class="meta">${tFirst?`первый токен ${((tFirst-t0)/1000).toFixed(1)} с · `:''}${n} фрагм. · ~${tps} ток/с${done?'':' · печатает'}</div>`;
+    const m = $('#msgs'); if (m.scrollHeight - m.scrollTop - m.clientHeight < 160) m.scrollTop = 1e9;
+  };
+  try {
+    const r = await fetch('/api/chat', {method:'POST', headers:{'Content-Type':'application/json'}, signal: ctrl.signal,
+      body: JSON.stringify({messages: history, thinking: think, temperature: +$('#c-temp').value, max_tokens: +$('#c-max').value})});
+    if (!r.ok) { const j = await r.json().catch(()=>({})); throw new Error(j.error || r.statusText); }
+    const rd = r.body.getReader(), dec = new TextDecoder(); let buf = '';
+    for (;;) {
+      const {value, done} = await rd.read(); if (done) break;
+      buf += dec.decode(value, {stream:true});
+      let i; while ((i = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0,i).trim(); buf = buf.slice(i+1);
+        if (!line.startsWith('data:')) continue;
+        const data = line.slice(5).trim(); if (data==='[DONE]') continue;
+        let j; try { j = JSON.parse(data); } catch { continue; }
+        if (j.error) throw new Error(typeof j.error==='string'?j.error:JSON.stringify(j.error));
+        const d = j.choices?.[0]?.delta || {};
+        const r1 = d.reasoning ?? d.reasoning_content ?? '', c1 = d.content ?? '';
+        if (r1 || c1) { if (!tFirst) tFirst = performance.now(); n++; reasoning += r1; content += c1; draw(false); }
+      }
+    }
+    draw(true); history.push({role:'assistant', content});
+  } catch(e) {
+    if (e.name==='AbortError') { draw(true); if (content) history.push({role:'assistant', content}); }
+    else { box.classList.add('err'); box.textContent = 'Ошибка: ' + e.message; history.pop(); }
+  } finally { ctrl = null; $('#c-stop').hidden = true; $('#c-send').disabled = false; inp.focus(); }
+}
+</script>
+</body>
+</html>
